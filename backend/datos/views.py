@@ -5,13 +5,13 @@ from .models import Registros
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
-class RegistroViewset(viewsets.ModelViewSet):  # Cambiado a ModelViewSet para optimizar
+class RegistroViewset(viewsets.ModelViewSet):  
     permission_classes = [permissions.AllowAny]
-    queryset = Registros.objects.select_related("usuario").all()  # Optimiza la consulta
+    queryset = Registros.objects.select_related("usuario").all()  
     serializer_class = RegistrosSerializer
 
     def list(self, request):
-        queryset = self.get_queryset()  # Obtiene los registros con usuario relacionado
+        queryset = self.get_queryset()  
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data)
     
