@@ -53,7 +53,7 @@ export default function Navbar({content}) {
                 <ListItemIcon>
                     <EqualizerIcon />
                 </ListItemIcon>
-                <ListItemText primary={"Pagina 2"} />
+                <ListItemText primary={"Historial"} />
             </ListItemButton>
             </ListItem>
             
@@ -62,7 +62,7 @@ export default function Navbar({content}) {
                 <ListItemIcon>
                     <EqualizerIcon />
                 </ListItemIcon>
-                <ListItemText primary={"Pagina 3"} />
+                <ListItemText primary={"Reportes"} />
             </ListItemButton>
             </ListItem>
 
