@@ -1,86 +1,88 @@
-import React, { useState } from 'react';
-import { PieChart, Pie, Sector, ResponsiveContainer } from 'recharts';
+import React, { useEffect, useState } from 'react';
+import AxiosInstance from '../Axios'; // Ajusta la ruta de AxiosInstance
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 
-// Datos para el gráfico
-const data = [
-  { name: 'Docentes', value: 400 },
-  { name: 'Administrativos', value: 300 },
-  { name: 'Motocicletas', value: 300 },
-  { name: 'Group D', value: 200 },
-];
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
 
-// Función para renderizar la forma activa (cuando se pasa el mouse)
-const renderActiveShape = (props) => {
-  const RADIAN = Math.PI / 180;
-  const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
-  const sin = Math.sin(-RADIAN * midAngle);
-  const cos = Math.cos(-RADIAN * midAngle);
-  const sx = cx + (outerRadius + 10) * cos;
-  const sy = cy + (outerRadius + 10) * sin;
-  const mx = cx + (outerRadius + 30) * cos;
-  const my = cy + (outerRadius + 30) * sin;
-  const ex = mx + (cos >= 0 ? 1 : -1) * 22;
-  const ey = my;
-  const textAnchor = cos >= 0 ? 'start' : 'end';
+const PieChartComponent = () => {
+  const [data, setData] = useState([]);
 
-  return (
-    <g>
-      <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill}>
-        {payload.name}
-      </text>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-      <Sector
-        cx={cx}
-        cy={cy}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        innerRadius={outerRadius + 6}
-        outerRadius={outerRadius + 10}
-        fill={fill}
-      />
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
-      <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
-      <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="#333">{`PV ${value}`}</text>
-      <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="#999">
-        {`(Rate ${(percent * 100).toFixed(2)}%)`}
-      </text>
-    </g>
-  );
-};
+  // Función para obtener los datos del backend
+  const fetchData = async () => {
+    try {
+      const response = await AxiosInstance.get('ocupacion-list/'); // Cambia la ruta según tu API
+      const rolesData = response.data;
 
-const PieRechart = () => {
-  const [activeIndex, setActiveIndex] = useState(0);
+      // Convertir la respuesta en el formato esperado por el gráfico
+      const formattedData = rolesData.map(rol => ({
+        name: rol.rol,
+        value: rol.count
+      }));
 
-  const onPieEnter = (_, index) => {
-    setActiveIndex(index); // Cambiar el índice activo cuando se pasa el mouse
+      setData(formattedData);
+    } catch (error) {
+      console.error("Error al obtener los datos:", error);
+    }
   };
 
+  useEffect(() => {
+    fetchData(); // Obtener los datos cuando se monta el componente
+  
+     // Actualizar automáticamente cada 5 segundos
+     const interval = setInterval(() => {
+      fetchData();
+    }, 5000); // Cambia el tiempo según tu necesidad (5000 ms = 5 segundos)
+
+    return () => clearInterval(interval); // Limpiar el intervalo al desmontar el componente
+  
+  }, []);
+
+  // Calcular el total de los valores para calcular el porcentaje
+  const total = data.reduce((sum, entry) => sum + entry.value, 0);
+
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart width={400} height={400}>
-        <Pie
-          activeIndex={activeIndex}
-          activeShape={renderActiveShape}
-          data={data}
-          cx="50%"
-          cy="50%"
-          innerRadius={60}
-          outerRadius={80}
-          fill="#8884d8"
-          dataKey="value"
-          onMouseEnter={onPieEnter}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <div style={{ width: '100%', height: 400, marginTop: '-60px' }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            outerRadius={80}
+            dataKey="value"
+            label={({ name,  }) => `${name}`} // Mostrar porcentaje en el gráfico
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+
+      {/* Leyenda personalizada */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '-40px' }}>
+        {data.map((entry, index) => {
+          // Calcular el porcentaje de cada entrada
+          const percentage = ((entry.value / total) * 100).toFixed(2);
+
+          return (
+            <div key={index} style={{ display: 'flex', alignItems: 'center', marginRight: '20px' }}>
+              <div
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  backgroundColor: COLORS[index % COLORS.length],
+                  marginRight: '5px',
+                }}
+              />
+              <span>{`${entry.name}: ${entry.value} (${percentage}%)`}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
-export default PieRechart;
+export default PieChartComponent;
