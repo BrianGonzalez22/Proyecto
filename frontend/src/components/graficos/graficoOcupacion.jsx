@@ -4,9 +4,9 @@ import { PieChart, Pie, Cell } from 'recharts';
 
 const RADIAN = Math.PI / 180;
 
-const TOTAL_ALUMNO = 20;
-const TOTAL_DOCENTE = 50;
-const TOTAL_ADMINISTRATIVO = 30;
+const TOTAL_ALUMNO = 168;
+const TOTAL_DOCADM = 149;
+const TOTAL_MOTOS = 16;
 
 const cx = 150;
 const cy = 200;
@@ -17,7 +17,7 @@ const colors = {
   disponibles: '#818181',
   alumno: '#00C49F',
   docente: '#FFBB28',
-  administrativo: '#0088FE',
+  motos: '#0088FE',
 };
 
 const needle = (value, data, cx, cy, iR, oR, color) => {
@@ -54,7 +54,7 @@ const EstacionamientoChart = () => {
   const [ocupados, setOcupados] = useState({
     alumno: 0,
     docente: 0,
-    administrativo: 0,
+    motos: 0,
     total: 0,
   });
 
@@ -65,22 +65,22 @@ const EstacionamientoChart = () => {
         const rolesData = response.data;
 
         const usuariosAlumnos = rolesData.find((rol) => rol.rol === 'alumno')?.count || 0;
-        const usuariosDocentes = rolesData.find((rol) => rol.rol === 'docente')?.count || 0;
-        const usuariosAdministrativos = rolesData.find((rol) => rol.rol === 'administrativo')?.count || 0;
+        const usuariosDocentes = rolesData.find((rol) => rol.rol === 'docente_administrativo')?.count || 0;
+        const usuariosMotos = rolesData.find((rol) => rol.rol === 'moto')?.count || 0;
 
         const disponiblesAlumnos = TOTAL_ALUMNO - usuariosAlumnos;
-        const disponiblesDocentes = TOTAL_DOCENTE - usuariosDocentes;
-        const disponiblesAdministrativos = TOTAL_ADMINISTRATIVO - usuariosAdministrativos;
-        const totalDisponibles = disponiblesAlumnos + disponiblesDocentes + disponiblesAdministrativos;
+        const disponiblesDocentes = TOTAL_DOCADM - usuariosDocentes;
+        const disponiblesMotos = TOTAL_MOTOS - usuariosMotos;
+        const totalDisponibles = disponiblesAlumnos + disponiblesDocentes + disponiblesMotos;
 
         setLugaresDisponibles(totalDisponibles);
-        setOcupados({ alumno: usuariosAlumnos, docente: usuariosDocentes, administrativo: usuariosAdministrativos, total: totalDisponibles});
+        setOcupados({ alumno: usuariosAlumnos, docente: usuariosDocentes, motos: usuariosMotos, total: totalDisponibles});
 
         setData([
           { name: 'Disponibles', value: totalDisponibles, color: colors.disponibles },
           { name: 'Ocupados Alumnos', value: usuariosAlumnos, color: colors.alumno },
           { name: 'Ocupados Docentes', value: usuariosDocentes, color: colors.docente },
-          { name: 'Ocupados Administrativos', value: usuariosAdministrativos, color: colors.administrativo },
+          { name: 'Ocupados Motos', value: usuariosMotos, color: colors.motos },
         ]);
       } catch (error) {
         console.error('Error al obtener los datos:', error);
@@ -122,12 +122,12 @@ const EstacionamientoChart = () => {
             Alumnos: {TOTAL_ALUMNO - ocupados.alumno} 
           </div>
           <div style={{ ...styles.legendItem, backgroundColor: colors.docente }}>
-            Docentes: {TOTAL_DOCENTE - ocupados.docente} 
+            Docentes y Administrativos: {TOTAL_DOCADM - ocupados.docente} 
           </div>
         </div>
         <div style={styles.legendRow}>
-          <div style={{ ...styles.legendItem, backgroundColor: colors.administrativo }}>
-            Administrativos: {TOTAL_ADMINISTRATIVO - ocupados.administrativo} 
+          <div style={{ ...styles.legendItem, backgroundColor: colors.motos }}>
+            Motocicletas: {TOTAL_MOTOS - ocupados.motos} 
           </div>
           <div style={{ ...styles.legendItem, backgroundColor: colors.disponibles }}>
             Total de lugares: { ocupados.total} 

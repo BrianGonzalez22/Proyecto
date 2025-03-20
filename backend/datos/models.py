@@ -4,7 +4,6 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 # Create your models here.
-
 class Usuarios(models.Model):
     nombre = models.CharField(max_length=100)
     correo = models.EmailField(unique=True)

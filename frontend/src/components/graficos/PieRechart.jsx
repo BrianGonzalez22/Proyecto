@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AxiosInstance from '../Axios'; // Ajusta la ruta de AxiosInstance
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
+const COLORS = ['#FFBB28','#00C49F','#0088FE'];
 
 const PieChartComponent = () => {
   const [data, setData] = useState([]);
@@ -61,7 +61,7 @@ const PieChartComponent = () => {
       </ResponsiveContainer>
 
       {/* Leyenda personalizada */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '-40px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', marginTop: '-40px' }}>
         {data.map((entry, index) => {
           // Calcular el porcentaje de cada entrada
           const percentage = ((entry.value / total) * 100).toFixed(2);
@@ -76,7 +76,8 @@ const PieChartComponent = () => {
                   marginRight: '5px',
                 }}
               />
-              <span>{`${entry.name}: ${entry.value} (${percentage}%)`}</span>
+              <div>{`${entry.name}: ${entry.value} (${percentage}%)`}</div>
+
             </div>
           );
         })}

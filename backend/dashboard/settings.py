@@ -43,6 +43,12 @@ INSTALLED_APPS = [
     'datos',
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -73,16 +79,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'dashboard.wsgi.application'
-#ASGI_APPLICATION = "dashboard.asgi.application"
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],  # Redis debe estar corriendo en este puerto
-        },
-    },
-}
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
