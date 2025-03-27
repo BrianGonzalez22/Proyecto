@@ -52,8 +52,8 @@ export default class Example extends PureComponent {
           <PolarAngleAxis dataKey="subject" />
           <PolarRadiusAxis angle={30} domain={[0, 150]} />
           <Radar name="Alumnos" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-          <Radar name="Docentes" dataKey="B" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
-          <Radar name="Administrativos" dataKey="B" stroke="#e36868" fill="#e36868" fillOpacity={0.6} />
+          <Radar name="Doc/Adm" dataKey="B" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
+          <Radar name="Motos" dataKey="B" stroke="#e36868" fill="#e36868" fillOpacity={0.6} />
           <Legend />
         </RadarChart>
       </ResponsiveContainer>

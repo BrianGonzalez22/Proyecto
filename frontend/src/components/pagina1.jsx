@@ -7,6 +7,7 @@ import PieChartComponent from './graficos/PieRechart';
 import ElectricRickshawIcon from '@mui/icons-material/ElectricRickshaw';
 import EstacionamientoChart from './graficos/graficoOcupacion';
 import Example from './graficos/graficoHoras';
+import MyChartBox2 from './graficos/BoxChart2';
 
 const Pagina1 = () => {
 
@@ -35,7 +36,21 @@ const Pagina1 = () => {
                 chart2 = { <EstacionamientoChart/>}
 
                 icon3 = {<DirectionsCarFilledIcon/>}
-                title3 = {"Tendencia de ocupacion (por dia)"}
+                title3 = {"Trafico previsto"}
+                chart3 = { <Example/>}
+            />
+
+            <MyChartBox2
+                icon1 = {<ElectricRickshawIcon/>}
+                title1 = {"Ocupacion"}
+                chart1 = { <PieChartComponent/>}
+
+                icon2 = {<GarageIcon/>}
+                title2 = {"Disponibilidad"}
+                chart2 = { <EstacionamientoChart/>}
+
+                icon3 = {<DirectionsCarFilledIcon/>}
+                title3 = {"Trafico previsto"}
                 chart3 = { <Example/>}
             />
         </div>

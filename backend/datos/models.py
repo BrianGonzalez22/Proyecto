@@ -22,6 +22,6 @@ class Registros(models.Model):
     usuario = models.ForeignKey(Usuarios, on_delete=models.CASCADE)
     vehiculo = models.ForeignKey(Vehiculos, on_delete=models.CASCADE)
     movimiento = models.CharField(max_length=30)
-    fecha = models.DateTimeField(auto_now_add=True)
+    fecha = models.DateTimeField()
 
     

@@ -10,7 +10,7 @@ const PieChartComponent = () => {
   // Función para obtener los datos del backend
   const fetchData = async () => {
     try {
-      const response = await AxiosInstance.get('ocupacion-list/'); // Cambia la ruta según tu API
+      const response = await AxiosInstance.get('obtener-registros/'); // Cambia la ruta según tu API
       const rolesData = response.data;
 
       // Convertir la respuesta en el formato esperado por el gráfico

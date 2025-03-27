@@ -1,66 +1,71 @@
-import sqlite3
-from faker import Faker
 import random
-from datetime import datetime
+from datetime import datetime, timedelta, time
+from datos.models import Registros, Usuarios, Vehiculos
+from django.utils import timezone
 
-# Conectar a la base de datos SQLite
-conn = sqlite3.connect("db.sqlite3")  # Asegúrate de usar el nombre correcto de tu BD
-cursor = conn.cursor()
-
-# Inicializar Faker para generar datos falsos
-fake = Faker()
-
-# Cantidad de registros a insertar
-NUM_USUARIOS = 15
-NUM_VEHICULOS = NUM_USUARIOS
-NUM_REGISTROS = 20
-
-# 1️⃣ Insertar usuarios en la tabla datos_usuarios
-usuarios = []
-for _ in range(NUM_USUARIOS):
-    nombre = fake.name()
-    correo = fake.email()
-    telefono = fake.phone_number()
+def generar_hora_aleatoria(hora_inicio, hora_fin):
+    """Genera una hora aleatoria dentro del rango especificado, sin zona horaria."""
+    # Crea fechas 'naive' (sin zona horaria)
+    inicio = datetime.combine(datetime.today(), hora_inicio)
+    fin = datetime.combine(datetime.today(), hora_fin)
     
-    cursor.execute("""
-        INSERT INTO datos_usuarios (nombre, correo, telefono) 
-        VALUES (?, ?, ?)
-    """, (nombre, correo, telefono))
+    # Calcula el delta de tiempo entre el inicio y el fin
+    delta = fin - inicio
     
-    usuarios.append(cursor.lastrowid)  # Guardar el ID del usuario recién insertado
+    # Genera una hora aleatoria dentro del rango de tiempo
+    return inicio + timedelta(seconds=random.randint(0, int(delta.total_seconds())))
 
+def insertar_registros(dias=5):
+    usuarios = list(Usuarios.objects.all())
+    vehiculos = list(Vehiculos.objects.all())
 
-# Insertar vehículos (1 vehículo por usuario)
-vehiculos = []
-for usuario_id in usuarios:  # Asignar un vehículo a cada usuario de la lista
-    placa = fake.unique.license_plate()
-    modelo = fake.word().capitalize()
-    color = fake.color_name()
-    tipo = random.choice(["Sedán", "SUV", "Camioneta", "Deportivo", "Hatchback"])
-    estado = random.choice([0, 1])
-    
-    cursor.execute("""
-        INSERT INTO datos_vehiculos (usuario_id, placa, modelo, color, tipo, estado) 
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (usuario_id, placa, modelo, color, tipo, estado))
-    
-    vehiculos.append(cursor.lastrowid)  # Guardar el ID del vehículo recién insertado
+    if not usuarios or not vehiculos:
+        print("No hay usuarios o vehículos registrados.")
+        return
 
+    for dia in range(dias):
+        fecha_base = datetime.now() + timedelta(days=dia)
+        registros_a_crear = []
 
-# 3️⃣ Insertar registros en la tabla datos_registros
-tipos_movimiento = ["entrada", "salida"]
-for _ in range(NUM_REGISTROS):
-    usuario_id = random.choice(usuarios)
-    vehiculo_id = random.choice(vehiculos)
-    movimiento = random.choice(tipos_movimiento)
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Formato SQLite
-    cursor.execute("""
-        INSERT INTO datos_registros (usuario_id, vehiculo_id, movimiento, fecha) 
-        VALUES (?, ?, ?, ?)
-    """, (usuario_id, vehiculo_id, movimiento, fecha))
+        # Seleccionamos usuarios únicos para entradas (máximo 250 o menos)
+        usuarios_para_entrada = random.sample(usuarios, min(len(usuarios), 250))
 
-# Guardar los cambios en la base de datos y cerrar la conexión
-conn.commit()
-conn.close()
+        # Crear entradas
+        entradas = {}
+        for usuario in usuarios_para_entrada:
+            vehiculo = random.choice([v for v in vehiculos if v.usuario == usuario])
+            hora_aleatoria = generar_hora_aleatoria(time(6, 0), time(12, 0))
+            fecha_hora = fecha_base.replace(hour=hora_aleatoria.hour, minute=hora_aleatoria.minute, second=hora_aleatoria.second)
 
-print("✅ Registros insertados correctamente en la base de datos.")
+            registro = Registros(
+                usuario=usuario,
+                vehiculo=vehiculo,
+                movimiento='entrada',
+                fecha=fecha_hora
+            )
+            registros_a_crear.append(registro)
+            entradas[usuario] = fecha_hora
+
+        # Crear salidas solo para quienes tienen entrada
+        for usuario, hora_entrada in entradas.items():
+            vehiculo = random.choice([v for v in vehiculos if v.usuario == usuario])
+            hora_salida = generar_hora_aleatoria((hora_entrada + timedelta(minutes=30)).time(), time(20, 0))
+            fecha_salida = fecha_base.replace(hour=hora_salida.hour, minute=hora_salida.minute, second=hora_salida.second)
+
+            if fecha_salida > fecha_hora:  # Validación para asegurar que la salida sea posterior
+                registros_a_crear.append(Registros(
+                    usuario=usuario,
+                    vehiculo=vehiculo,
+                    movimiento='salida',
+                    fecha=fecha_salida
+                ))
+
+        print(f"Registros creados para el día: {fecha_base.date()} (Entradas: {len(entradas)}, Salidas: {len(registros_a_crear) - len(entradas)})")
+
+        # Inserción masiva
+        Registros.objects.bulk_create(registros_a_crear)
+
+    print("Registros creados exitosamente.")
+
+# Ejecutar la función
+insertar_registros(30)

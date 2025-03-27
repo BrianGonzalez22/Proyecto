@@ -61,11 +61,11 @@ const EstacionamientoChart = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await AxiosInstance.get('ocupacion-list/');
+        const response = await AxiosInstance.get('obtener-registros/');
         const rolesData = response.data;
 
         const usuariosAlumnos = rolesData.find((rol) => rol.rol === 'alumno')?.count || 0;
-        const usuariosDocentes = rolesData.find((rol) => rol.rol === 'docente_administrativo')?.count || 0;
+        const usuariosDocentes = rolesData.find((rol) => rol.rol === 'docente_admin')?.count || 0;
         const usuariosMotos = rolesData.find((rol) => rol.rol === 'moto')?.count || 0;
 
         const disponiblesAlumnos = TOTAL_ALUMNO - usuariosAlumnos;
