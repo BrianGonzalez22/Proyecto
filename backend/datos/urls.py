@@ -12,10 +12,10 @@ router.register('registros',RegistroViewset, basename ='registros' )
 
 urlpatterns = [
     path('', include(router.urls)),  # Incluye todas las rutas del router
-    path('ocupacion-list/', OcupacionView.as_view(), name='ocupacion-list'),  # Agrega la vista manualmente
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', register_user, name='register_user'),
-    path('vehiculos-hoy/', VehiculosHoyView.as_view(), name='vehiculos_hoy'),
-    path('obtener-registros/', views.obtener_registro_por_id, name='obtener_registro_por_id'),
+    path('obtener-registros/', obtener_registro_por_id, name='obtener_registro_por_id'),
+    path('grafico/', obtener_datos_grafico, name='grafico'),
+
 ]

@@ -1,63 +1,56 @@
-import React, { PureComponent } from 'react';
-import { Radar, RadarChart, PolarGrid, Legend, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import AxiosInstance from '../Axios'; // Asegúrate de importar la instancia de Axios
 
-const data = [
-  {
-    subject: 'Lunes',
-    A: 120,
-    B: 110,
-    fullMark: 150,
-  },
-  {
-    subject: 'Martes',
-    A: 98,
-    B: 130,
-    fullMark: 150,
-  },
-  {
-    subject: 'Miercoles',
-    A: 86,
-    B: 130,
-    fullMark: 150,
-  },
-  {
-    subject: 'Jueves',
-    A: 99,
-    B: 100,
-    fullMark: 150,
-  },
-  {
-    subject: 'Viernes',
-    A: 85,
-    B: 90,
-    fullMark: 150,
-  },
-  {
-    subject: 'Sabado',
-    A: 65,
-    B: 85,
-    fullMark: 150,
-  },
-];
+const EstanciaPromedioChart = () => {
+  // Estado para almacenar los datos del gráfico
+  const [data, setData] = useState([]);
 
-export default class Example extends PureComponent {
-  static demoUrl = 'https://codesandbox.io/p/sandbox/radar-chart-specified-domain-l68xry';
+  // Hacer la solicitud al endpoint cuando el componente se monte
+  useEffect(() => {
+    // Suponiendo que el endpoint es "/api/promedio_ocupacion"
+    AxiosInstance.get('grafico/')  // Usamos la instancia de Axios
+      .then((response) => {
+        // Transformar los datos para tener el formato adecuado para el gráfico
+        const transformedData = response.data.map((item) => ({
+          hora: item.intervalo,  // Esto es el intervalo de tiempo (por ejemplo, "06:00 - 07:00")
+          tiempoEstancia: Math.round(item.tiempo_estancia_promedio), // El promedio de ocupación
+        }));
 
-  render() {
-    return (
-        <div style={{ width: '100%', height: '400px' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
-          <PolarGrid />
-          <PolarAngleAxis dataKey="subject" />
-          <PolarRadiusAxis angle={30} domain={[0, 150]} />
-          <Radar name="Alumnos" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-          <Radar name="Doc/Adm" dataKey="B" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
-          <Radar name="Motos" dataKey="B" stroke="#e36868" fill="#e36868" fillOpacity={0.6} />
+        // Actualizar el estado con los nuevos datos
+        setData(transformedData);
+      })
+      .catch((error) => {
+        console.error('Error al obtener los datos:', error);
+      });
+  }, []); // El array vacío significa que esto se ejecutará solo una vez, al montarse el componente
+
+  return (
+    <div>
+      {/* Verificamos si los datos están disponibles antes de renderizar el gráfico */}
+      {data.length > 0 ? (
+        <LineChart width={370} height={400} data={data}>
+          {/* Cuadrícula de fondo */}
+          <CartesianGrid strokeDasharray="3 3" />
+          
+          {/* Eje X y Eje Y */}
+          <XAxis dataKey="hora" />
+          <YAxis label={{ value: 'Minutos', angle: -90, position: 'insideLeft' }} />
+          
+          {/* Tooltip para información al pasar el mouse */}
+          <Tooltip />
+          
+          {/* Leyenda */}
           <Legend />
-        </RadarChart>
-      </ResponsiveContainer>
-      </div>
-    );
-  }
-}
+          
+          {/* Línea principal con estilo */}
+          <Line type="monotone" dataKey="tiempoEstancia" stroke="#00C49F" strokeWidth={2} />
+        </LineChart>
+      ) : (
+        <p>Cargando datos...</p>  // Mostrar un mensaje de carga mientras los datos no estén disponibles
+      )}
+    </div>
+  );
+};
+
+export default EstanciaPromedioChart;

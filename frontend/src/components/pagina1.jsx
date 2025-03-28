@@ -6,8 +6,9 @@ import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled';
 import PieChartComponent from './graficos/PieRechart';
 import ElectricRickshawIcon from '@mui/icons-material/ElectricRickshaw';
 import EstacionamientoChart from './graficos/graficoOcupacion';
-import Example from './graficos/graficoHoras';
+import EstanciaPromedioChart from './graficos/graficoHoras';
 import MyChartBox2 from './graficos/BoxChart2';
+import HeatmapChart from './graficos/HeatMapChart';
 
 const Pagina1 = () => {
 
@@ -36,22 +37,19 @@ const Pagina1 = () => {
                 chart2 = { <EstacionamientoChart/>}
 
                 icon3 = {<DirectionsCarFilledIcon/>}
-                title3 = {"Trafico previsto"}
-                chart3 = { <Example/>}
+                title3 = {"Estancia Promedio en minutos"}
+                chart3 = { <EstanciaPromedioChart/>}
             />
 
             <MyChartBox2
                 icon1 = {<ElectricRickshawIcon/>}
                 title1 = {"Ocupacion"}
-                chart1 = { <PieChartComponent/>}
+                chart1 = { <HeatmapChart/>}
 
                 icon2 = {<GarageIcon/>}
                 title2 = {"Disponibilidad"}
-                chart2 = { <EstacionamientoChart/>}
+                chart2 = { <ElectricRickshawIcon/>}
 
-                icon3 = {<DirectionsCarFilledIcon/>}
-                title3 = {"Trafico previsto"}
-                chart3 = { <Example/>}
             />
         </div>
     )

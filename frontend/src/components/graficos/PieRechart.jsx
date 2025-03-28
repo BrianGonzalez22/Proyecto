@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AxiosInstance from '../Axios'; // Ajusta la ruta de AxiosInstance
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 
-const COLORS = ['#FFBB28','#00C49F','#0088FE'];
+const COLORS = ['#00C49F','#FFBB28','#0088FE'];
 
 const PieChartComponent = () => {
   const [data, setData] = useState([]);

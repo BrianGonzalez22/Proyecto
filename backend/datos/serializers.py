@@ -38,7 +38,9 @@ class OcupacionSerializer(serializers.ModelSerializer):
             return obj.usuario.rol  # Suponiendo que en el modelo Registro hay un ForeignKey a Usuario
         return None  # Si el movimiento no es entrada, no retorna rol
     
-
+class PromedioEstanciaSerializer(serializers.Serializer):
+    intervalo = serializers.CharField()
+    tiempo_estancia_promedio = serializers.FloatField()
 
 
     

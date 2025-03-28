@@ -1,9 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth import authenticate
 from rest_framework import viewsets, permissions
-from .serializers import RegistrosSerializer
-from .serializers import RolCountSerializer
-from .serializers import OcupacionSerializer
+from .serializers import *
 from rest_framework.views import APIView
 from .models import Registros
 from rest_framework.response import Response
@@ -16,7 +14,8 @@ from rest_framework import status
 from datetime import datetime, timedelta
 from django.utils.timezone import now
 from django.utils import timezone
-
+from .utils import obtener_inicio_y_fin_del_dia
+from collections import defaultdict
 
 class RegistroViewset(viewsets.ModelViewSet):  
     permission_classes = [permissions.AllowAny]
@@ -27,93 +26,6 @@ class RegistroViewset(viewsets.ModelViewSet):
         queryset = self.get_queryset()  
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data)
-
-class OcupacionView(APIView):
-
-    def get(self, request, *args, **kwargs):
-        # Obtener la fecha actual con rango de tiempo (inicio y fin del día)
-        today = timezone.now().date()
-        start_of_day = timezone.make_aware(datetime.combine(today, datetime.min.time()))
-        end_of_day = timezone.make_aware(datetime.combine(today, datetime.max.time()))
-
-        # Obtener las últimas entradas y salidas por usuario (solo del día actual)
-        ultimas_entradas = Registros.objects.filter(
-            movimiento='entrada',
-            fecha__range=(start_of_day, end_of_day)
-        ).values('usuario').annotate(ultima_entrada=Max('fecha'))
-
-        ultimas_salidas = Registros.objects.filter(
-            movimiento='salida',
-            fecha__range=(start_of_day, end_of_day)
-        ).values('usuario').annotate(ultima_salida=Max('fecha'))
-
-        # Crear un diccionario con las últimas salidas
-        salidas_dict = {item['usuario']: item['ultima_salida'] for item in ultimas_salidas}
-
-        # Hora actual para comparar con las salidas
-        hora_actual = timezone.now()
-
-        # Filtrar los usuarios cuya última entrada no tenga una salida posterior
-        usuarios_con_entrada_ocupada = []
-        usuarios_con_entrada_sin_salida = []
-
-        for entrada in ultimas_entradas:
-            usuario_id = entrada['usuario']
-            ultima_entrada = entrada['ultima_entrada']
-            ultima_salida = salidas_dict.get(usuario_id)
-
-            # Si no hay salida o la última salida es en el futuro, consideramos la entrada como ocupada
-            if not ultima_salida or ultima_salida > hora_actual:
-                usuarios_con_entrada_ocupada.append(usuario_id)
-            else:
-                usuarios_con_entrada_sin_salida.append(usuario_id)
-
-        # Realizar el conteo de roles de los usuarios ocupados
-        rol_count_ocupados = Registros.objects.filter(
-            usuario__in=usuarios_con_entrada_ocupada, 
-            movimiento='entrada',
-            fecha__range=(start_of_day, end_of_day)
-        ).values('usuario__rol').annotate(count=Count('usuario__rol'))
-
-        # Agrupar 'docente' y 'administrativo' bajo 'doc/adm'
-        aggregated_data_ocupados = {}
-        for item in rol_count_ocupados:
-            rol = item['usuario__rol']
-            count = item['count']
-
-            if rol in ['docente', 'administrativo']:
-                aggregated_data_ocupados['doc/adm'] = aggregated_data_ocupados.get('doc/adm', 0) + count
-            else:
-                aggregated_data_ocupados[rol] = aggregated_data_ocupados.get(rol, 0) + count
-
-        # Formatear los resultados para entradas ocupadas
-        data_ocupados = [{'rol': rol, 'count': count} for rol, count in aggregated_data_ocupados.items()]
-
-        # Realizar el conteo de roles de los usuarios sin salida
-        rol_count_sin_salida = Registros.objects.filter(
-            usuario__in=usuarios_con_entrada_sin_salida,
-            movimiento='entrada',
-            fecha__range=(start_of_day, end_of_day)
-        ).values('usuario__rol').annotate(count=Count('usuario__rol'))
-
-        # Agrupar 'docente' y 'administrativo' bajo 'doc/adm'
-        aggregated_data_sin_salida = {}
-        for item in rol_count_sin_salida:
-            rol = item['usuario__rol']
-            count = item['count']
-
-            if rol in ['docente', 'administrativo']:
-                aggregated_data_sin_salida['doc/adm'] = aggregated_data_sin_salida.get('doc/adm', 0) + count
-            else:
-                aggregated_data_sin_salida[rol] = aggregated_data_sin_salida.get(rol, 0) + count
-
-        # Formatear los resultados para entradas sin salida
-        data_sin_salida = [{'rol': rol, 'count': count} for rol, count in aggregated_data_sin_salida.items()]
-
-        # Combinar los resultados de las entradas ocupadas y sin salida
-        data_final = {'ocupados': data_ocupados, 'sin_salida': data_sin_salida}
-
-        return Response(data_final)
 
 @api_view(['POST'])
 def register_user(request):
@@ -135,113 +47,159 @@ def register_user(request):
     return Response({'message': 'Usuario creado exitosamente'}, status=status.HTTP_201_CREATED)
 
 
-class VehiculosHoyView(APIView):
-
-    def get(self, request, *args, **kwargs):
-        # Obtener la fecha actual (sin hora, solo la fecha)
-        today = now().date()
-        
-        # Consulta usando Django ORM
-        registros_hoy = Registros.objects.filter(
-            fecha__date=today
-        ).values('vehiculo__id')
-
-
-        # Extraer los vehículos únicos
-        vehiculos_ids = [registro['vehiculo__id'] for registro in registros_hoy]
-
-        # Devolver los vehículos en formato de respuesta JSON
-        return Response({'vehiculos_ids': vehiculos_ids})
-    
-
 @api_view(['GET'])
 def obtener_registro_por_id(request):
-    # Obtener la fecha y hora actual sin zona horaria
-    fecha_objetivo = datetime.now()
+    inicio_dia, fin_dia = obtener_inicio_y_fin_del_dia()
 
-    # Obtener la hora actual y crear el rango de fecha
-    hora = fecha_objetivo.hour
-    minuto = fecha_objetivo.minute
-    segundo = fecha_objetivo.second
-    microsegundo = fecha_objetivo.microsecond
-
-    # Establecer el inicio y fin del día
-    inicio_dia = fecha_objetivo.replace(hour=0, minute=0, second=0, microsecond=0)
-    fin_dia = fecha_objetivo.replace(hour=hora, minute=minuto, second=segundo, microsecond=microsegundo)
-
-    # Filtrar los registros dentro del rango de la fecha
-    registros_entrada_sin_salida = Registros.objects.filter(
+    # Obtener todas las entradas dentro del rango de la fecha
+    entradas = Registros.objects.filter(
         fecha__gte=inicio_dia,
         fecha__lt=fin_dia,
         movimiento='entrada'
-    ).exclude(
-    usuario_id__in=Registros.objects.filter(
-        movimiento='salida',
-        fecha__gte=inicio_dia,
-        fecha__lt=fin_dia
-    ).values('usuario_id')
-)
-    #print("Número de entradas encontradas:", registros_entrada_sin_salida.count())
+    )
+
+    # Filtrar solo las entradas que no tienen una salida correspondiente
+    registros_entrada_sin_salida = []
+    for entrada in entradas:
+        salida = Registros.objects.filter(
+            movimiento='salida',
+            usuario_id=entrada.usuario_id,
+            vehiculo_id=entrada.vehiculo_id,
+            fecha__gte=entrada.fecha,
+            fecha__lt=fin_dia
+        ).exists()
+
+        # Si no existe una salida, se agrega a la lista
+        if not salida:
+            registros_entrada_sin_salida.append(entrada)
+
     # Agrupar por rol de usuario, combinando "docente" y "administrativo" en un solo grupo
-    registros_agrupados = registros_entrada_sin_salida.annotate(
-        rol_agrupado=Case(
-            When(usuario__rol='docente', then=Value('docente_admin')),
-            When(usuario__rol='administrativo', then=Value('docente_admin')),
-            default=F('usuario__rol'),
-            output_field=CharField()
+    registros_agrupados = (
+        Registros.objects.filter(id__in=[r.id for r in registros_entrada_sin_salida])
+        .annotate(
+            rol_agrupado=Case(
+                When(usuario__rol='docente', then=Value('docente_admin')),
+                When(usuario__rol='administrativo', then=Value('docente_admin')),
+                default=F('usuario__rol'),
+                output_field=CharField()
+            )
         )
-    ).values('rol_agrupado').annotate(count=Count('id'))
+        .values('rol_agrupado')
+        .annotate(count=Count('id'))
+    )
 
     # Crear la respuesta de los registros agrupados
     resultados = [{'rol': registro['rol_agrupado'], 'count': registro['count']} for registro in registros_agrupados]
 
     return Response(resultados)
 
-
-
-
-#PRUEBAS##
 def obtener():
-
-    fecha_objetivo = datetime.now()
-
-    hora = fecha_objetivo.hour
-    minuto = fecha_objetivo.minute
-    segundo = fecha_objetivo.second
-    microsegundo = fecha_objetivo.microsecond
-
-    print(fecha_objetivo)
-
-    inicio_dia = fecha_objetivo.replace(hour=0, minute=0, second=0, microsecond=0)
-    fin_dia = fecha_objetivo.replace(hour= hora, minute=minuto, second=segundo, microsecond=microsegundo)
-
-    print(inicio_dia, fin_dia)
-    # Filtrar los registros en el rango
-    registros = Registros.objects.filter(fecha__gte=inicio_dia, fecha__lt=fin_dia)
-
-    print(f"Se encontraron {registros.count()} registros con la fecha {fecha_objetivo.date()}")
-    for registro in registros:
-        print(f"ID: {registro.id}, Fecha: {registro.fecha}, Vehículo ID: {registro.vehiculo_id}")
-#PRUEBAS##
-
-def motos():
-    fecha_objetivo = datetime.now()
-
-    hora = fecha_objetivo.hour
-    minuto = fecha_objetivo.minute
-    segundo = fecha_objetivo.second
-    microsegundo = fecha_objetivo.microsecond
-
-    inicio_dia = fecha_objetivo.replace(hour=0, minute=0, second=0, microsecond=0)
-    fin_dia = fecha_objetivo.replace(hour= hora, minute=minuto, second=segundo, microsecond=microsegundo)
-
-    # Filtrar los registros en el rango
-    registros = Registros.objects.filter(fecha__gte=inicio_dia, fecha__lt=fin_dia, usuario__rol='moto')
-    entradas = Registros.objects.filter(fecha__gte=inicio_dia, fecha__lt=fin_dia, usuario__rol='moto', movimiento='entrada').count()
-    salidas = Registros.objects.filter(fecha__gte=inicio_dia, fecha__lt=fin_dia, usuario__rol='moto',movimiento='salida').count()
+    inicio_dia, fin_dia = obtener_inicio_y_fin_del_dia()
+    # Obtener todos los usuarios que tienen al menos una entrada registrada
+    entradas = Registros.objects.filter(movimiento='entrada', fecha__gte=inicio_dia, fecha__lt=fin_dia)
     
-    print(f"Entradas: {entradas}")
-    print(f"Salidas: {salidas}")
-    print(f"Se encontraron {registros.count()} ")
-    for registro in registros:
-        print(f"ID: {registro.id}, Fecha: {registro.fecha},Movimiento : {registro.movimiento}, Vehículo ID: {registro.vehiculo_id}, Rol: {registro.usuario.rol}")
+    usuarios_con_entrada_y_salida = []
+
+    # Iterar sobre las entradas
+    for entrada in entradas:
+        # Buscar si existe una salida para la misma entrada (mismo usuario y vehículo)
+        salida = Registros.objects.filter(
+            movimiento='salida',
+            usuario_id=entrada.usuario_id,
+            vehiculo_id=entrada.vehiculo_id,
+            fecha__gt=entrada.fecha,
+            fecha__gte=inicio_dia, 
+            fecha__lt=fin_dia,
+            
+        )
+        
+        for salida in salida:
+            # Si existe una salida correspondiente, agregar el usuario y el vehículo a la lista
+            usuarios_con_entrada_y_salida.append({
+                'usuario_id': entrada.usuario_id,
+                'vehiculo_id': entrada.vehiculo_id,
+                'entrada': entrada.fecha,
+                'salida': salida.fecha
+            })
+    # Iterar sobre la lista y mostrar los resultados
+    
+    return usuarios_con_entrada_y_salida
+
+@api_view(['GET'])
+def obtener_datos_grafico(request):
+    # Llamar a la función que calcula el promedio por 2 horas
+    data = calcular_promedio_por_hora()
+    
+    # Usar el serializador para estructurar los datos, asegurándote de pasar los datos como 'data'
+    serializer = PromedioEstanciaSerializer(data=data, many=True)
+    
+    # Validar y devolver los datos serializados en la respuesta
+    if serializer.is_valid():
+        return Response(serializer.data)
+    else:
+        return Response(serializer.errors, status=400)
+    
+
+def calcular_promedio_por_hora():
+    # Obtener la lista de usuarios con entrada y salida
+    usuarios_con_entrada_y_salida = obtener()
+
+    # Crear una lista de estancias con sus intervalos de 1 hora
+    estancias = []
+    for usuario in usuarios_con_entrada_y_salida:
+        entrada = usuario['entrada']
+        salida = usuario['salida']
+        
+        # Calcular la duración de la estancia en minutos
+        tiempo_estancia = (salida - entrada).total_seconds() / 60  # Convertir a minutos
+        
+        # Calcular el intervalo de 1 hora en el que cae la entrada
+        hora_inicio_intervalo = entrada.hour  # Tomamos la hora completa para intervalos de 1 hora
+        intervalo = f'{hora_inicio_intervalo}:00 - {hora_inicio_intervalo + 1}:00'  # Intervalo de 1 hora
+        
+        # Agregar la estancia con el intervalo y el tiempo de estancia
+        estancias.append({
+            'usuario_id': usuario['usuario_id'],
+            'intervalo': intervalo,
+            'tiempo_estancia': tiempo_estancia
+        })
+    
+    # Agrupar las estancias por intervalo de 1 hora
+    agrupados_por_intervalo = defaultdict(list)
+    for estancia in estancias:
+        agrupados_por_intervalo[estancia['intervalo']].append(estancia['tiempo_estancia'])
+
+    # Calcular el promedio ponderado por intervalo de 1 hora
+    promedio_ponderado_por_intervalo = []
+    for intervalo, tiempos in agrupados_por_intervalo.items():
+        total_tiempos = sum(tiempos)  # Sumar todos los tiempos de ocupación
+        total_usuarios = len(tiempos)  # Número total de usuarios en el intervalo
+        
+        promedio = total_tiempos / total_usuarios if total_usuarios > 0 else 0  # Calcular el promedio ponderado
+        
+        promedio_ponderado_por_intervalo.append({
+            'intervalo': intervalo,
+            'tiempo_estancia_promedio': promedio
+        })
+
+    # Ordenar los intervalos por la hora de inicio del intervalo (numéricamente)
+    promedio_ponderado_por_intervalo.sort(key=lambda x: x['intervalo'])
+    
+    return promedio_ponderado_por_intervalo
+
+
+
+
+#PRUEBAS##
+def usuario():
+    inicio_dia, fin_dia = obtener_inicio_y_fin_del_dia()
+
+    entradas = Registros.objects.filter(movimiento='entrada', fecha__gte=inicio_dia, fecha__lt=fin_dia)
+    salidas = Registros.objects.filter(movimiento='salida', fecha__gte=inicio_dia, fecha__lt=fin_dia)
+
+    for x in entradas:
+        print(f"id: {x.usuario} entrada")
+
+    for x in salidas:
+        print(f"id: {x.usuario} salida")
+#PRUEBAS##
