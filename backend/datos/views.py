@@ -2,20 +2,20 @@ from django.shortcuts import render
 from django.contrib.auth import authenticate
 from rest_framework import viewsets, permissions
 from .serializers import *
-from rest_framework.views import APIView
 from .models import Registros
 from rest_framework.response import Response
-from django.db.models import Count, Max, When, Case, Value, CharField, F
+from django.db.models import Count, When, Case, Value, CharField, F
 from .models import *
 from rest_framework.decorators import api_view
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from rest_framework import status
-from datetime import datetime, timedelta
-from django.utils.timezone import now
-from django.utils import timezone
 from .utils import obtener_inicio_y_fin_del_dia
 from collections import defaultdict
+import pandas as pd
+from prophet import Prophet
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
 
 class RegistroViewset(viewsets.ModelViewSet):  
     permission_classes = [permissions.AllowAny]
@@ -149,45 +149,133 @@ def calcular_promedio_por_hora():
     for usuario in usuarios_con_entrada_y_salida:
         entrada = usuario['entrada']
         salida = usuario['salida']
-        
+
         # Calcular la duración de la estancia en minutos
         tiempo_estancia = (salida - entrada).total_seconds() / 60  # Convertir a minutos
-        
-        # Calcular el intervalo de 1 hora en el que cae la entrada
-        hora_inicio_intervalo = entrada.hour  # Tomamos la hora completa para intervalos de 1 hora
-        intervalo = f'{hora_inicio_intervalo}:00 - {hora_inicio_intervalo + 1}:00'  # Intervalo de 1 hora
-        
-        # Agregar la estancia con el intervalo y el tiempo de estancia
-        estancias.append({
-            'usuario_id': usuario['usuario_id'],
-            'intervalo': intervalo,
-            'tiempo_estancia': tiempo_estancia
-        })
-    
+
+        # Iterar por todos los intervalos de 1 hora entre la entrada y la salida
+        hora_actual = entrada
+        while hora_actual < salida:
+            # Calcular el intervalo de 1 hora en el que cae la entrada
+            hora_inicio_intervalo = hora_actual.hour
+            intervalo = f'{hora_inicio_intervalo}:00 - {hora_inicio_intervalo + 1}:00'
+
+            # Agregar la estancia con el intervalo, el tiempo de estancia y la hora de inicio
+            estancias.append({
+                'usuario_id': usuario['usuario_id'],
+                'intervalo': intervalo,
+                'tiempo_estancia': tiempo_estancia,
+                'hora_inicio': hora_inicio_intervalo  # Guardar la hora de inicio para ordenarlo luego
+            })
+
+            # Avanzar una hora
+            hora_actual += timedelta(hours=1)
+
     # Agrupar las estancias por intervalo de 1 hora
     agrupados_por_intervalo = defaultdict(list)
     for estancia in estancias:
-        agrupados_por_intervalo[estancia['intervalo']].append(estancia['tiempo_estancia'])
+        agrupados_por_intervalo[estancia['intervalo']].append(estancia)
 
     # Calcular el promedio ponderado por intervalo de 1 hora
     promedio_ponderado_por_intervalo = []
-    for intervalo, tiempos in agrupados_por_intervalo.items():
-        total_tiempos = sum(tiempos)  # Sumar todos los tiempos de ocupación
-        total_usuarios = len(tiempos)  # Número total de usuarios en el intervalo
+    for intervalo, estancias_en_intervalo in agrupados_por_intervalo.items():
+        # Sumar todos los tiempos de ocupación y contar los usuarios
+        total_tiempos = sum(estancia['tiempo_estancia'] for estancia in estancias_en_intervalo)
+        total_usuarios = len(estancias_en_intervalo)
         
-        promedio = total_tiempos / total_usuarios if total_usuarios > 0 else 0  # Calcular el promedio ponderado
+        # Calcular el promedio ponderado
+        promedio = total_tiempos / total_usuarios if total_usuarios > 0 else 0
+
+        # Obtener la hora de inicio (tomamos la hora de la primera estancia en ese intervalo)
+        hora_inicio = estancias_en_intervalo[0]['hora_inicio']
         
+        # Agregar el resultado para ese intervalo
         promedio_ponderado_por_intervalo.append({
             'intervalo': intervalo,
-            'tiempo_estancia_promedio': promedio
+            'tiempo_estancia_promedio': promedio,
+            'hora_inicio': hora_inicio  # Incluimos la hora de inicio para ordenar luego
         })
 
     # Ordenar los intervalos por la hora de inicio del intervalo (numéricamente)
-    promedio_ponderado_por_intervalo.sort(key=lambda x: x['intervalo'])
-    
+    promedio_ponderado_por_intervalo.sort(key=lambda x: x['hora_inicio'])
+
     return promedio_ponderado_por_intervalo
 
 
+#-------------------------------------------------Vistas del modelo prophet------------------------------------------------#
+
+#Vista para la predicción de ocupacion basado en entradas
+@api_view(['GET'])
+def predecir_ocupacion_prophet(request):
+    ahora = datetime.now()
+    inicio_dia = ahora.replace(hour=5, minute=0, second=0, microsecond=0)
+    fin_dia = ahora.replace(hour=23, minute=0, second=0, microsecond=0)
+
+    # Obtener registros hasta el momento actual
+    registros = Registros.objects.filter(fecha__lte=ahora, movimiento='entrada').values('fecha', 'usuario_id')
+
+    if not registros:
+        return Response({"error": "No hay registros disponibles para la predicción."}, status=400)
+
+    # Convertir a DataFrame
+    df = pd.DataFrame(registros)
+    df['fecha'] = pd.to_datetime(df['fecha'])
+    df['count'] = 1
+
+    # Agrupar por hora para obtener la ocupación por hora
+    df = df.resample('h', on='fecha').count().reset_index()
+
+    # Renombrar columnas para Prophet (debe ser 'ds' y 'y')
+    df = df.rename(columns={'fecha': 'ds', 'count': 'y'})
+
+    # Crear y ajustar el modelo
+    modelo = Prophet()
+    modelo.fit(df)
+
+    # Generar predicciones para las próximas 24 horas
+    futuro = modelo.make_future_dataframe(periods=24, freq='h')
+    predicciones = modelo.predict(futuro)
+
+    # Filtrar predicciones solo para hoy
+    predicciones_filtradas = predicciones[
+        (predicciones['ds'] >= inicio_dia) & (predicciones['ds'] <= fin_dia)
+    ]
+
+    # Seleccionar y formatear las predicciones
+    resultado = predicciones_filtradas[['ds', 'yhat']]
+
+    respuesta = [
+        {
+            'hora': row['ds'].strftime('%Y-%m-%d %H:%M:%S'),
+            'prediccion': max(0, int(row['yhat']))  # Evitar valores negativos
+        }
+        for _, row in resultado.iterrows()
+    ]
+
+    return Response(respuesta)
+
+#Vista para predecir la capacidad general del estacionamiento cada hora
+@api_view(['GET'])
+def predecir_dispo(request):
+    estancias = emparejar_entradas_salidas()
+
+    # Paso 3: Calcular lugares disponibles
+    disponibilidad = calcular_lugares_disponibles(estancias)
+
+    # Paso 2: Preparar datos para Prophet
+    data = preparar_datos_para_prophet(disponibilidad)
+
+    # Paso 3: Entrenar el modelo
+    modelo = entrenar_modelo_prophet(data)
+
+    # Paso 4: Hacer predicciones
+    predicciones = hacer_predicciones(modelo, periodos=24)
+
+    predicciones_json = predicciones_a_json(predicciones)
+
+    # Devolver como respuesta JSON
+    return Response(predicciones_json)
+#-------------------------------------------------Vistas del modelo prophet------------------------------------------------#
 
 
 #PRUEBAS##
@@ -203,3 +291,110 @@ def usuario():
     for x in salidas:
         print(f"id: {x.usuario} salida")
 #PRUEBAS##
+
+
+#-------------------------------------------PREPARACION PARA CALCULAR DISPONIBILIDAD------------------------------------#
+def emparejar_entradas_salidas():
+    hoy= datetime.now()
+    registros = Registros.objects.filter(fecha__lte=hoy).order_by('fecha')
+
+    usuarios_entradas = defaultdict(list)
+    usuarios_salidas = defaultdict(list)
+    estancias = []
+
+    for registro in registros:
+        if registro.movimiento == "entrada":
+            usuarios_entradas[registro.usuario_id].append(registro)
+        elif registro.movimiento == "salida":
+            # Verifica si hay una entrada previa para el usuario
+            if usuarios_entradas[registro.usuario_id]:
+                entrada = usuarios_entradas[registro.usuario_id].pop(0)  # Primera entrada
+                estancias.append({
+                    'usuario_id': registro.usuario_id,
+                    'entrada': entrada.fecha,
+                    'salida': registro.fecha
+                })
+            else:
+                usuarios_salidas[registro.usuario_id].append(registro)
+    
+    return estancias
+
+def calcular_lugares_disponibles(estancias):
+    TOTAL_LUGARES = 333
+
+    # Crear eventos de entradas (+1) y salidas (-1)
+    eventos = []
+    for estancia in estancias:
+        eventos.append((estancia['entrada'], 1))
+        eventos.append((estancia['salida'], -1))
+    
+    # Ordenar los eventos por fecha
+    eventos.sort()
+
+    # Calcular lugares disponibles en cada momento
+    ocupados = 0
+    disponibilidad_por_momento = []
+    
+    for fecha, cambio in eventos:
+        ocupados += cambio
+        lugares_disponibles = max(TOTAL_LUGARES - ocupados, 0)
+        disponibilidad_por_momento.append((fecha, lugares_disponibles))
+
+    # Agrupar por hora
+    disponibilidad_por_hora = defaultdict(list)
+    
+    for fecha, lugares_disponibles in disponibilidad_por_momento:
+        hora_redondeada = fecha.replace(minute=0, second=0, microsecond=0)
+        disponibilidad_por_hora[hora_redondeada].append(lugares_disponibles)
+
+    # Calcular el promedio por hora
+    resultado = []
+    for hora, valores in disponibilidad_por_hora.items():
+        promedio = sum(valores) / len(valores)
+        resultado.append({'fecha': hora, 'lugares_disponibles': round(promedio)})
+
+    # Ordenar el resultado por fecha
+    resultado.sort(key=lambda x: x['fecha'])
+    
+    return resultado
+
+
+
+def preparar_datos_para_prophet(disponibilidad):
+    df = pd.DataFrame(disponibilidad)
+    df = df.rename(columns={'fecha': 'ds', 'lugares_disponibles': 'y'})
+    return df
+
+def entrenar_modelo_prophet(data):
+    # Crear y configurar el modelo
+    modelo = Prophet()
+    modelo.fit(data)
+
+    return modelo
+
+def hacer_predicciones(modelo, periodos=24):
+    # Crear fechas futuras para predicciones (periodos en horas)
+    futuro = modelo.make_future_dataframe(periods=periodos, freq='h')
+    
+    # Hacer predicciones
+    predicciones = modelo.predict(futuro)
+    return predicciones
+
+def predicciones_a_json(predicciones):
+    # Obtener la fecha actual sin horas, minutos y segundos
+    fecha_actual = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Filtrar solo las predicciones a partir de hoy
+    predicciones_futuras = predicciones[predicciones['ds'] >= fecha_actual]
+
+    # Seleccionar y renombrar las columnas
+    resultados = predicciones_futuras[['ds', 'yhat']].rename(columns={
+        'ds': 'fecha',
+        'yhat': 'ocupacion_esperada'
+    })
+
+    # Convertir a JSON
+    resultados_json = resultados.to_dict(orient='records')
+    return resultados_json
+
+#-------------------------------------------PREPARACION PARA CALCULAR DISPONIBILIDAD------------------------------------#

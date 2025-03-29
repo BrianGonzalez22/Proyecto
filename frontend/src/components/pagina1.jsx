@@ -3,12 +3,13 @@ import AxiosInstance from './Axios'
 import MyChartBox from './graficos/BoxChart'
 import GarageIcon from '@mui/icons-material/Garage';
 import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled';
-import PieChartComponent from './graficos/PieRechart';
+import PieChartComponent from './graficos/OcupacionChart';
 import ElectricRickshawIcon from '@mui/icons-material/ElectricRickshaw';
-import EstacionamientoChart from './graficos/graficoOcupacion';
-import EstanciaPromedioChart from './graficos/graficoHoras';
+import EstacionamientoChart from './graficos/DisponibilidadChart';
+import EstanciaPromedioChart from './graficos/PromedioChart';
 import MyChartBox2 from './graficos/BoxChart2';
-import HeatmapChart from './graficos/HeatMapChart';
+import HeatmapChart from './graficos/MapaCalorChart';
+import GraficoOcupacion from './graficos/PrediDispoChart';
 
 const Pagina1 = () => {
 
@@ -43,12 +44,12 @@ const Pagina1 = () => {
 
             <MyChartBox2
                 icon1 = {<ElectricRickshawIcon/>}
-                title1 = {"Ocupacion"}
+                title1 = {"Tendencia prevista de entradas para hoy"}
                 chart1 = { <HeatmapChart/>}
 
                 icon2 = {<GarageIcon/>}
-                title2 = {"Disponibilidad"}
-                chart2 = { <ElectricRickshawIcon/>}
+                title2 = {"Espacios ocupados previstos para hoy"}
+                chart2 = { <GraficoOcupacion/>}
 
             />
         </div>
