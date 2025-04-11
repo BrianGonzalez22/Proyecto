@@ -2,34 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import AxiosInstance from '../Axios'; // Asegúrate de importar la instancia de Axios
 
-const EstanciaPromedioChart = () => {
-  // Estado para almacenar los datos del gráfico
-  const [data, setData] = useState([]);
+const EstanciaPromedioChart = ({ data }) => {
+  const [chartData, setChartData] = useState([]);
 
-  // Hacer la solicitud al endpoint cuando el componente se monte
+  // Transformar los datos para el gráfico
   useEffect(() => {
-    // Suponiendo que el endpoint es "/api/promedio_ocupacion"
-    AxiosInstance.get('grafico/')  // Usamos la instancia de Axios
-      .then((response) => {
-        // Transformar los datos para tener el formato adecuado para el gráfico
-        const transformedData = response.data.map((item) => ({
-          hora: item.intervalo,  // Esto es el intervalo de tiempo (por ejemplo, "06:00 - 07:00")
-          tiempoEstancia: Math.round(item.tiempo_estancia_promedio), // El promedio de ocupación
-        }));
-
-        // Actualizar el estado con los nuevos datos
-        setData(transformedData);
-      })
-      .catch((error) => {
-        console.error('Error al obtener los datos:', error);
-      });
-  }, []); // El array vacío significa que esto se ejecutará solo una vez, al montarse el componente
+    // Si los datos se pasan como prop, no necesitas hacer la solicitud a la API
+    if (data.length > 0) {
+      const transformedData = data.map((item) => ({
+        hora: item.intervalo,  // Usamos "intervalo" como hora
+        tiempoEstancia: Math.round(item.tiempo_estancia_promedio), // Redondeamos el tiempo de estancia
+      }));
+      setChartData(transformedData);  // Establecemos los datos transformados
+    }
+  }, [data]);  // Este useEffect solo se ejecutará cuando 'data' cambie
 
   return (
     <div>
       {/* Verificamos si los datos están disponibles antes de renderizar el gráfico */}
-      {data.length > 0 ? (
-        <LineChart width={370} height={400} data={data}>
+      {chartData.length > 0 ? (
+        <LineChart width={370} height={400} data={chartData}>
           {/* Cuadrícula de fondo */}
           <CartesianGrid strokeDasharray="3 3" />
           

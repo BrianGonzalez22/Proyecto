@@ -16,6 +16,8 @@ import pandas as pd
 from prophet import Prophet
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
+from rest_framework.views import APIView
+from django.db.models.functions import TruncDate
 
 class RegistroViewset(viewsets.ModelViewSet):  
     permission_classes = [permissions.AllowAny]
@@ -125,8 +127,8 @@ def obtener():
     
     return usuarios_con_entrada_y_salida
 
-@api_view(['GET'])
-def obtener_datos_grafico(request):
+
+def obtener_datos_grafico():
     # Llamar a la función que calcula el promedio por 2 horas
     data = calcular_promedio_por_hora()
     
@@ -135,9 +137,9 @@ def obtener_datos_grafico(request):
     
     # Validar y devolver los datos serializados en la respuesta
     if serializer.is_valid():
-        return Response(serializer.data)
+        return serializer.data
     else:
-        return Response(serializer.errors, status=400)
+       return {"error": serializer.errors}
     
 
 def calcular_promedio_por_hora():
@@ -205,8 +207,8 @@ def calcular_promedio_por_hora():
 #-------------------------------------------------Vistas del modelo prophet------------------------------------------------#
 
 #Vista para la predicción de ocupacion basado en entradas
-@api_view(['GET'])
-def predecir_ocupacion_prophet(request):
+
+def predecir_ocupacion_prophet():
     ahora = datetime.now()
     inicio_dia = ahora.replace(hour=5, minute=0, second=0, microsecond=0)
     fin_dia = ahora.replace(hour=23, minute=0, second=0, microsecond=0)
@@ -252,13 +254,12 @@ def predecir_ocupacion_prophet(request):
         for _, row in resultado.iterrows()
     ]
 
-    return Response(respuesta)
+    return respuesta
 
 #Vista para predecir la capacidad general del estacionamiento cada hora
-@api_view(['GET'])
-def predecir_dispo(request):
-    estancias = emparejar_entradas_salidas()
 
+def predecir_dispo():
+    estancias = emparejar_entradas_salidas()
     # Paso 3: Calcular lugares disponibles
     disponibilidad = calcular_lugares_disponibles(estancias)
 
@@ -267,14 +268,14 @@ def predecir_dispo(request):
 
     # Paso 3: Entrenar el modelo
     modelo = entrenar_modelo_prophet(data)
-
+    
     # Paso 4: Hacer predicciones
     predicciones = hacer_predicciones(modelo, periodos=24)
 
     predicciones_json = predicciones_a_json(predicciones)
 
     # Devolver como respuesta JSON
-    return Response(predicciones_json)
+    return predicciones_json
 #-------------------------------------------------Vistas del modelo prophet------------------------------------------------#
 
 
@@ -381,6 +382,7 @@ def hacer_predicciones(modelo, periodos=24):
     return predicciones
 
 def predicciones_a_json(predicciones):
+
     # Obtener la fecha actual sin horas, minutos y segundos
     fecha_actual = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -398,3 +400,69 @@ def predicciones_a_json(predicciones):
     return resultados_json
 
 #-------------------------------------------PREPARACION PARA CALCULAR DISPONIBILIDAD------------------------------------#
+
+#-------------------------------------------PRUEBA DE UNA SOLA VISTA------------------------------------#
+
+class GraficoData(APIView):
+    def get(self, request):
+        # Obtener los datos para el primer gráfico
+        datos_prophet = predecir_dispo()
+        
+        # Obtener los datos para el segundo gráfico
+        datos_dispo = predecir_ocupacion_prophet()
+
+        # Obtener los datos para el tercer gráfico
+        datos_ocupacion = obtener_datos_grafico()
+
+        # Devuelves todo junto en un solo objeto
+        return Response({
+            'prophet': datos_prophet,
+            'dispo': datos_dispo,
+            'ocupacion': datos_ocupacion,
+        })
+#-------------------------------------------PRUEBA DE UNA SOLA VISTA------------------------------------#
+
+@api_view(['GET'])
+def obtener_datos(request):
+    vehiculos = VehiculoSerializer(Vehiculos.objects.all(), many=True).data
+    usuarios = UsuarioSerializer(Usuarios.objects.all(), many=True).data
+    #registros = RegistroSerializer(Registros.objects.all(), many=True).data
+
+    return Response({
+        "vehiculos": vehiculos,
+        "usuarios": usuarios,
+       # "registros": registros,
+    })
+
+@api_view(['GET'])
+def obtener_fechas_registros(request):
+    # Truncar las fechas a solo día (sin horas, minutos ni segundos)
+    fechas = Registros.objects.annotate(fecha_truncada=TruncDate('fecha')).values('fecha_truncada').distinct().order_by('fecha_truncada')
+    
+    # Extraemos solo el valor truncado de la fecha
+    fechas = [fecha['fecha_truncada'] for fecha in fechas]
+    
+    # Enviamos la lista de fechas truncadas
+    return Response(fechas)
+
+@api_view(['GET'])
+def obtener_registros_filtrados(request):
+    fecha_inicio = request.query_params.get('fecha_inicio')
+    fecha_fin = request.query_params.get('fecha_fin')
+
+    print(f"fecha_inicio: {fecha_inicio}, fecha_fin: {fecha_fin}")  # Agrega esta línea para depurar
+
+    if fecha_inicio and fecha_fin:
+        # Convertir las fechas recibidas a objetos datetime
+        fecha_inicio = datetime.strptime(fecha_inicio, "%Y-%m-%dT%H:%M:%S")
+        fecha_fin = datetime.strptime(fecha_fin, "%Y-%m-%dT%H:%M:%S")
+
+        # Filtrar los registros por el rango de fecha
+        registros = Registros.objects.filter(fecha__range=[fecha_inicio, fecha_fin])
+    else:
+        registros = Registros.objects.all()
+
+    # Serializar y devolver los registros
+    serializer = RegistrosSerializer(registros, many=True)
+    return Response(serializer.data)
+

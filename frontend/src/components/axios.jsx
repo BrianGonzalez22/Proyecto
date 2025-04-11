@@ -4,7 +4,7 @@ const myURL = 'http://127.0.0.1:8000/'
 
 const AxiosInstance = axios.create({
     baseURL: myURL,
-    timeout: 5000,
+    timeout: 15000,
     headers:{
         "Content-Type": "application/json",
         accept: "application/json"

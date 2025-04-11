@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import AxiosInstance from "../Axios";  // Importamos Axios
+
 import {
   LineChart,
   Line,
@@ -11,28 +11,22 @@ import {
   ResponsiveContainer
 } from "recharts";  // Importamos componentes de Recharts
 
-const GraficoOcupacion = () => {
-  const [data, setData] = useState([]);
+const GraficoOcupacion = ({data}) => {
+  const [graficoData, setGraficoData] = useState([]);
 
-  // Cargar los datos utilizando Axios
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await AxiosInstance.get("predecir-dispo/"); // Aquí la URL de tu API para obtener las predicciones
-        setData(response.data);  // Almacenar los datos en el estado
-      } catch (error) {
-        console.error("Error al obtener los datos:", error);
-      }
-    };
+    if (data) {
+      setGraficoData(data);
+    }
+  }, [data]); // Se actualiza si cambian los props
 
-    fetchData();
-  }, []);
+  console.log(graficoData)
 
   return (
     <div>
       
       <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={data}>
+        <LineChart data={graficoData}>
           {/* Ejes X e Y */}
           <XAxis dataKey="fecha" tick={{ fontSize: 12 }} tickFormatter={(value) => new Date(value).toLocaleString()} />
           <YAxis tick={{ fontSize: 12 }} />
@@ -60,5 +54,4 @@ const GraficoOcupacion = () => {
     </div>
   );
 };
-
 export default GraficoOcupacion;

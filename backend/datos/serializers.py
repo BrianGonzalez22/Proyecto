@@ -42,8 +42,27 @@ class PromedioEstanciaSerializer(serializers.Serializer):
     intervalo = serializers.CharField()
     tiempo_estancia_promedio = serializers.FloatField()
 
+#-----------------------------------------------Serializadores para el historial-------------------------------------------#
+class VehiculoSerializer(serializers.ModelSerializer):
+    usuario = serializers.SlugRelatedField(slug_field='nombre', queryset=Usuarios.objects.all())
+    class Meta:
+        model = Vehiculos
+        fields = ['id','placa','modelo', 'color', 'tipo', 'usuario']
 
-    
+class UsuarioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Usuarios
+        fields = '__all__'
+
+class RegistroSerializer(serializers.ModelSerializer):
+    vehiculo = serializers.StringRelatedField()
+    usuario = serializers.StringRelatedField()
+
+    class Meta:
+        model = Registros
+        fields = '__all__'
+#-----------------------------------------------Serializadores para el historial-------------------------------------------#
+
     # usuario = models.ForeignKey(Usuarios, on_delete=models.CASCADE)
     # vehiculo = models.ForeignKey(Vehiculos, on_delete=models.CASCADE)
     # movimiento = models.CharField(max_length=30)

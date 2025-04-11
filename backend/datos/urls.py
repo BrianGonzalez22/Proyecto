@@ -16,8 +16,10 @@ urlpatterns = [
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', register_user, name='register_user'),
     path('obtener-registros/', obtener_registro_por_id, name='obtener_registro_por_id'),
-    path('grafico/', obtener_datos_grafico, name='grafico'),
-    path('predecir-prophet/', predecir_ocupacion_prophet, name='predecir_prophet'),
-    path('predecir-dispo/', predecir_dispo, name='predecir_dispo'),
+    path('grafico-data/', GraficoData.as_view(), name='grafico_data'),
+    path('obtener-datos/', obtener_datos, name='obtener_datos'),
+    path('obtener-fechas-registros/', obtener_fechas_registros, name='obtener_fechas'),
+    path('obtener-fechas-filtradas/', obtener_registros_filtrados, name='obtener_fechas_filtradas'),
+
 
 ]
