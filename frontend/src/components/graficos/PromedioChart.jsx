@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import AxiosInstance from '../Axios'; // Asegúrate de importar la instancia de Axios
+
 
 const EstanciaPromedioChart = ({ data }) => {
   const [chartData, setChartData] = useState([]);
@@ -11,7 +11,7 @@ const EstanciaPromedioChart = ({ data }) => {
     if (data.length > 0) {
       const transformedData = data.map((item) => ({
         hora: item.intervalo,  // Usamos "intervalo" como hora
-        tiempoEstancia: Math.round(item.tiempo_estancia_promedio), // Redondeamos el tiempo de estancia
+        minutos: Math.round(item.tiempo_estancia_promedio), // Redondeamos el tiempo de estancia
       }));
       setChartData(transformedData);  // Establecemos los datos transformados
     }
@@ -36,7 +36,7 @@ const EstanciaPromedioChart = ({ data }) => {
           <Legend />
           
           {/* Línea principal con estilo */}
-          <Line type="monotone" dataKey="tiempoEstancia" stroke="#00C49F" strokeWidth={2} />
+          <Line type="monotone" dataKey="minutos" stroke="#00C49F" strokeWidth={2} />
         </LineChart>
       ) : (
         <p>Cargando datos...</p>  // Mostrar un mensaje de carga mientras los datos no estén disponibles

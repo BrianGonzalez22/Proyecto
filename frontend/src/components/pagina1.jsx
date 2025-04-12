@@ -1,5 +1,5 @@
 import {React, useState, useEffect} from 'react'
-import AxiosInstance from './Axios'
+import AxiosInstance from './axios'
 import MyChartBox from './graficos/BoxChart'
 import GarageIcon from '@mui/icons-material/Garage';
 import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled';
