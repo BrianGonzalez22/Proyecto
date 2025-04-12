@@ -15,7 +15,7 @@ const Login = ({ setIsAuthenticated }) => {
           password
         });
   
-        // Guarda los tokens en localStorage
+        
         localStorage.setItem('access', response.data.access);
         localStorage.setItem('refresh', response.data.refresh);
   

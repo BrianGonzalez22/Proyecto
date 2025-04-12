@@ -1,7 +1,5 @@
 from django.db import models
 from django.utils import timezone
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 
 # Create your models here.
 class Usuarios(models.Model):
