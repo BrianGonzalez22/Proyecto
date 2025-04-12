@@ -1,5 +1,5 @@
 import React from 'react';
-import PieRechart from './graficos/PieRechart';
+import PieRechart from './graficos/OcupacionChart';
 
 const Pagina3 = () => {
     return (

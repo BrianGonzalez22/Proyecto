@@ -4,7 +4,6 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 # Create your models here.
-
 class Usuarios(models.Model):
     nombre = models.CharField(max_length=100)
     correo = models.EmailField(unique=True)
@@ -23,6 +22,6 @@ class Registros(models.Model):
     usuario = models.ForeignKey(Usuarios, on_delete=models.CASCADE)
     vehiculo = models.ForeignKey(Vehiculos, on_delete=models.CASCADE)
     movimiento = models.CharField(max_length=30)
-    fecha = models.DateTimeField(auto_now_add=True)
+    fecha = models.DateTimeField()
 
     
